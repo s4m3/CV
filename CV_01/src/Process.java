@@ -54,7 +54,9 @@ public class Process extends JPanel {
          
         // selector for the method
         JLabel methodText = new JLabel("Methode:");
-        String[] methodNames = {"Kopie", "Graustufen", "Kanten"};
+        String[] methodNames = {"Kopie", "Graustufen", "X-Gradient", 
+        		"Y-Gradient", "X-Gradient Sobel", "Y-Gradient Sobel", 
+        		"Gradientenbetrag", "Gradientenwinkel", "Gradientenwinkel Farbe", "Kombination"};
         
         methodList = new JComboBox(methodNames);
         methodList.setSelectedIndex(0);		// set initial method
@@ -174,7 +176,9 @@ public class Process extends JPanel {
     	statusLine.setText(message);
 
 		long startTime = System.currentTimeMillis();
-		
+		//{"Kopie", "Graustufen", "X-Gradient", "Y-Gradient", 
+		//"X-Gradient Sobel", "Y-Gradient Sobel", "Gradientenbetrag", 
+		//"Gradientenwinkel", "Gradientenwinkel Farbe", "Kombination"}
     	switch(methodList.getSelectedIndex()) {
     	case 0:	// Kopie
     		doCopy(srcPixels, dstPixels, width, height);
@@ -182,7 +186,31 @@ public class Process extends JPanel {
     	case 1:	// Graustufen
     		doGray(srcPixels, dstPixels, width, height);
     		break;
-    	case 2:	
+    	case 2:	// X-Gradient
+    		
+    		break;
+    	case 3:	// Y-Gradient
+    		
+    		break;
+    	case 4:	// "X-Gradient Sobel
+    		
+    		break;
+    	case 5:	// Y-Gradient Sobel
+    		
+    		break;
+    	case 6:	// Gradientenbetrag
+    		
+    		break;
+    	case 7:	// Gradientenwinkel
+    		
+    		break;
+    	case 8:	// Gradientenwinkel Farbe
+    		
+    		break;
+    	case 9:	// Kombination
+    		
+    		break;
+    	default:	
     		break;
     	}
 
