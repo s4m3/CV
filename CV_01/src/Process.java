@@ -174,7 +174,8 @@ public class Process extends JPanel {
     	String message = "\"" + methodName + "\"";
 
     	statusLine.setText(message);
-
+    	int filterWidth;
+    	int filterHeight;
 		long startTime = System.currentTimeMillis();
 		//{"Kopie", "Graustufen", "X-Gradient", "Y-Gradient", 
 		//"X-Gradient Sobel", "Y-Gradient Sobel", "Gradientenbetrag", 
@@ -187,16 +188,31 @@ public class Process extends JPanel {
     		doGray(srcPixels, dstPixels, width, height);
     		break;
     	case 2:	// X-Gradient
-    		
+    		int temp[] = new int[width * height];
+    		doGray(srcPixels, temp, width, height);
+    		doSimpleHorizontalConvolution(temp, dstPixels, width, height);
     		break;
     	case 3:	// Y-Gradient
-    		
+    		float[] yGradientFilter = {-0.5f, 0, 0.5f};
+    		filterWidth = 1;
+    		filterHeight = 3;
+    		doConvolution(srcPixels, dstPixels, width, height, yGradientFilter, filterWidth, filterHeight);
     		break;
     	case 4:	// "X-Gradient Sobel
-    		
+    		float[] sobelFilterX = {-1, 0, 1,
+    								-2, 0, 2,
+    								-1, 0, 1};
+    		filterWidth = 3;
+    		filterHeight = 3;
+    		doConvolution(srcPixels, dstPixels, width, height, sobelFilterX, filterWidth, filterHeight);
     		break;
     	case 5:	// Y-Gradient Sobel
-    		
+    		float[] sobelFilterY = {-1, -2, -1,
+									0, 0, 0,
+									1, 2, 1};
+    		filterWidth = 3;
+    		filterHeight = 3;
+    		doConvolution(srcPixels, dstPixels, width, height, sobelFilterY, filterWidth, filterHeight);
     		break;
     	case 6:	// Gradientenbetrag
     		
@@ -256,6 +272,71 @@ public class Process extends JPanel {
 					lum = Math.min(lum,255);
 					dstPixels[pos] = 0xFF000000 | (lum<<16) | (lum<<8) | lum;
 				
+			}
+		}
+    }
+    
+    void doSimpleHorizontalConvolution(int srcPixels[], int dstPixels[], int width, int height) {
+    	float[] filter = {-0.5f, 0, 0.5f};
+    	for (int y = 0; y < height; y++) {
+			
+			for (int x = 0; x < width; x++) {
+				int pos	= y * width + x;
+				int left = (pos-1 < 0 || x == 0) ? srcPixels[pos] : srcPixels[pos-1];
+				int middle = srcPixels[pos];
+				int right = (pos+1 >= srcPixels.length || x == width - 1) ? srcPixels[pos] : srcPixels[pos+1]; 
+				
+				int result = (int) (left * filter[0] + middle * filter[1] + right * filter[2]);
+				
+//				int r = ((left>>16)&0xFF * filter[0] + (middle>>16)&0xFF * filter[1] + (right>>16)&0xFF * filter[2]) / 2;
+//				int g = ((left>> 8)&0xFF * filter[0] + (middle>> 8)&0xFF * filter[1] + (right>> 0)&0xFF * filter[2]) / 2;
+//				int b = ((left    )&0xFF * filter[0] + (middle    )&0xFF * filter[1] + (right    )&0xFF * filter[2]) / 2;
+				
+				int r = (result>>16)&0xFF;
+				int g = (result>> 8)&0xFF;
+				int b = (result    )&0xFF;
+				
+				int lum = (int) (0.299*r + 0.587*g + 0.114*b + parameter1);
+				//System.out.println(lum);
+//				System.out.println("before conv:" + srcPixels[pos]);
+//				System.out.println("after conv:" + result);
+				//lum = Math.min(lum,255);
+				dstPixels[pos] = 0xFF000000 | (lum<<16) | (lum<<8) | lum;
+				//dstPixels[pos] = result;
+				
+			}
+		}
+    }
+    
+    void doSimpleVerticalConvolution(int srcPixels[], int dstPixels[], int width, int height) {
+    	
+    }
+    
+    void doConvolution(int srcPixels[], int dstPixels[], int width, int height, float filter[], int filterWidth, int filterHeight) {
+    	for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				int pos = y * width + x;
+				int counter = 0;
+				int result = 0;
+				int[] values = new int[filter.length];
+				for(int j=pos-(filterHeight/2)*width; j<=pos+(filterHeight/2)*width; j = j+width) {
+					for(int i=j-(filterWidth/2); i<=j+(filterWidth/2); i++)
+					{
+						if(i<0 || i>=srcPixels.length || (i != 0 && pos % width == 0 && (i+1) % width == 0) || (pos != 0 && (pos+1) % width == 0 && i % width == 0)) 
+							values[counter] = srcPixels[pos];
+						else 
+							values[counter] = srcPixels[i];
+						counter++;
+					}
+				}
+				for(int u=0; u<values.length; u++) {
+					result += values[u] * filter[u];
+				}
+				int r = (result>>16)&0xFF;
+				int g = (result>> 8)&0xFF;
+				int b = (result    )&0xFF;
+				int lum = (int) (0.299*r + 0.587*g + 0.114*b + parameter1);
+				dstPixels[pos] = 0xFF000000 | (lum<<16) | (lum<<8) | lum;
 			}
 		}
     }
