@@ -188,9 +188,9 @@ public class Process extends JPanel {
     		doGray(srcPixels, dstPixels, width, height);
     		break;
     	case 2:	// X-Gradient
-    		int temp[] = new int[width * height];
-    		doGray(srcPixels, temp, width, height);
-    		doSimpleHorizontalConvolution(temp, dstPixels, width, height);
+//    		int temp[] = new int[width * height];
+//    		doGray(srcPixels, temp, width, height);
+    		doSimpleHorizontalConvolution(srcPixels, dstPixels, width, height);
     		break;
     	case 3:	// Y-Gradient
     		float[] yGradientFilter = {-0.5f, 0, 0.5f};
@@ -282,9 +282,9 @@ public class Process extends JPanel {
 			
 			for (int x = 0; x < width; x++) {
 				int pos	= y * width + x;
-				int left = (pos-1 < 0 || x == 0) ? srcPixels[pos] : srcPixels[pos-1];
+				int left = (pos-1 < 0 || x == 0) ? (srcPixels[pos]>>16)&0xFF : (srcPixels[pos-1]>>16)&0xFF;
 				int middle = srcPixels[pos];
-				int right = (pos+1 >= srcPixels.length || x == width - 1) ? srcPixels[pos] : srcPixels[pos+1]; 
+				int right = (pos+1 >= srcPixels.length || x == width - 1) ? (srcPixels[pos]>>16)&0xFF : (srcPixels[pos+1]>>16)&0xFF; 
 				
 				int result = (int) (left * filter[0] + middle * filter[1] + right * filter[2]);
 				
@@ -292,11 +292,11 @@ public class Process extends JPanel {
 //				int g = ((left>> 8)&0xFF * filter[0] + (middle>> 8)&0xFF * filter[1] + (right>> 0)&0xFF * filter[2]) / 2;
 //				int b = ((left    )&0xFF * filter[0] + (middle    )&0xFF * filter[1] + (right    )&0xFF * filter[2]) / 2;
 				
-				int r = (result>>16)&0xFF;
-				int g = (result>> 8)&0xFF;
-				int b = (result    )&0xFF;
+//				int r = (result>>16)&0xFF;
+//				int g = (result>> 8)&0xFF;
+//				int b = (result    )&0xFF;
 				
-				int lum = (int) (0.299*r + 0.587*g + 0.114*b + parameter1);
+				int lum = (int) (0.299*result + 0.587*result + 0.114*result + parameter1);
 				//System.out.println(lum);
 //				System.out.println("before conv:" + srcPixels[pos]);
 //				System.out.println("after conv:" + result);
@@ -323,22 +323,30 @@ public class Process extends JPanel {
 					for(int i=j-(filterWidth/2); i<=j+(filterWidth/2); i++)
 					{
 						if(i<0 || i>=srcPixels.length || (i != 0 && pos % width == 0 && (i+1) % width == 0) || (pos != 0 && (pos+1) % width == 0 && i % width == 0)) 
-							values[counter] = srcPixels[pos];
+							values[counter] = (srcPixels[pos]>>16)&0xFF;
 						else 
-							values[counter] = srcPixels[i];
+							values[counter] = (srcPixels[i]>>16)&0xFF;
 						counter++;
 					}
 				}
 				for(int u=0; u<values.length; u++) {
 					result += values[u] * filter[u];
 				}
-				int r = (result>>16)&0xFF;
-				int g = (result>> 8)&0xFF;
-				int b = (result    )&0xFF;
-				int lum = (int) (0.299*r + 0.587*g + 0.114*b + parameter1);
+//				int r = (result>>16)&0xFF;
+//				int g = (result>> 8)&0xFF;
+//				int b = (result    )&0xFF;
+				int lum = (int) (0.299*result + 0.587*result + 0.114*result + parameter1);
 				dstPixels[pos] = 0xFF000000 | (lum<<16) | (lum<<8) | lum;
 			}
 		}
+    }
+    
+    int getLumOfPixel(int rgbValue) {
+		int r = (rgbValue>>16)&0xFF;
+		int g = (rgbValue>> 8)&0xFF;
+		int b = (rgbValue    )&0xFF;
+		int lum = (int) (0.299*r + 0.587*g + 0.114*b);
+		return lum;
     }
     
 
