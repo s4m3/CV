@@ -55,7 +55,7 @@ public class Process extends JPanel {
         // selector for the method
         JLabel methodText = new JLabel("Methode:");
         String[] methodNames = {"Kopie", "Graustufen", "X-Gradient", 
-        		"Y-Gradient", "X-Gradient Sobel", "Y-Gradient Sobel", 
+        		"Y-Gradient", "X-Gradient Sobel (sep)", "Y-Gradient Sobel (sep)", "X-Gradient Sobel", "Y-Gradient Sobel", 
         		"Gradientenbetrag", "Gradientenwinkel", "Gradientenwinkel Farbe", "Kombination"};
         
         methodList = new JComboBox(methodNames);
@@ -176,10 +176,18 @@ public class Process extends JPanel {
     	statusLine.setText(message);
     	int filterWidth;
     	int filterHeight;
+		float[] sobelX = {-1, 0, 1,
+				-2, 0, 2,
+				-1, 0, 1};
+		
+		float[] sobelY = {-1, -2, -1,
+				0, 0, 0,
+				1, 2, 1};
+		int[] tempSobelX = new int[width * height];
+		int[] tempSobelY = new int[width * height];
+		
 		long startTime = System.currentTimeMillis();
-		//{"Kopie", "Graustufen", "X-Gradient", "Y-Gradient", 
-		//"X-Gradient Sobel", "Y-Gradient Sobel", "Gradientenbetrag", 
-		//"Gradientenwinkel", "Gradientenwinkel Farbe", "Kombination"}
+
     	switch(methodList.getSelectedIndex()) {
     	case 0:	// Kopie
     		doCopy(srcPixels, dstPixels, width, height);
@@ -188,43 +196,71 @@ public class Process extends JPanel {
     		doGray(srcPixels, dstPixels, width, height);
     		break;
     	case 2:	// X-Gradient
-//    		int temp[] = new int[width * height];
-//    		doGray(srcPixels, temp, width, height);
-    		doSimpleHorizontalConvolution(srcPixels, dstPixels, width, height);
+    		float[] xGradientFilter = {-0.5f, 0, 0.5f};
+    		doSimpleHorizontalConvolution(srcPixels, dstPixels, width, height, xGradientFilter);
     		break;
     	case 3:	// Y-Gradient
     		float[] yGradientFilter = {-0.5f, 0, 0.5f};
-    		filterWidth = 1;
-    		filterHeight = 3;
-    		doConvolution(srcPixels, dstPixels, width, height, yGradientFilter, filterWidth, filterHeight);
+    		doSimpleVerticalConvolution(srcPixels, dstPixels, width, height, yGradientFilter);
     		break;
-    	case 4:	// "X-Gradient Sobel
-    		float[] sobelFilterX = {-1, 0, 1,
-    								-2, 0, 2,
-    								-1, 0, 1};
+    	case 4:	// X-Gradient Sobel (sep)
+    		float[] sobelFilterX1 = {1, 2, 1};
+    		int[] tempX1 = new int[width * height];
+    		doSimpleVerticalConvolution(srcPixels, tempX1, width, height, sobelFilterX1);
+    		float[] sobelFilterX2 = {-1, 0, 1};
+    		int[] tempX2 = new int[width * height];
+    		doSimpleHorizontalConvolution(srcPixels, tempX2, width, height, sobelFilterX2);
+    		showFilteredPixelsOfJoinedConvolutions(tempX1, tempX2, dstPixels);
+    		break;
+    	case 5:	// Y-Gradient Sobel (sep)
+    		float[] sobelFilterY1 = {-1, 0, 1};
+    		int[] tempY1 = new int[width * height];
+    		doSimpleVerticalConvolution(srcPixels, tempY1, width, height, sobelFilterY1);
+    		float[] sobelFilterY2 = {1, 2, 1};
+    		int[] tempY2 = new int[width * height];
+    		doSimpleHorizontalConvolution(srcPixels, tempY2, width, height, sobelFilterY2);
+    		showFilteredPixelsOfJoinedConvolutions(tempY1, tempY2, dstPixels);
+    		break;
+    	case 6:	// "X-Gradient Sobel
+
     		filterWidth = 3;
     		filterHeight = 3;
-    		doConvolution(srcPixels, dstPixels, width, height, sobelFilterX, filterWidth, filterHeight);
+    		int[] tempXGradSobel = new int[width * height];
+    		doConvolution(srcPixels, tempXGradSobel, width, height, sobelX, filterWidth, filterHeight);
+    		showDstPixels(tempXGradSobel, dstPixels);
+    		
     		break;
-    	case 5:	// Y-Gradient Sobel
-    		float[] sobelFilterY = {-1, -2, -1,
-									0, 0, 0,
-									1, 2, 1};
+    	case 7:	// Y-Gradient Sobel
+    		filterWidth = 3;
+    		filterHeight = 3;    
+    		int[] tempYGradSobel = new int[width * height];
+    		doConvolution(srcPixels, tempYGradSobel, width, height, sobelY, filterWidth, filterHeight);
+    		showDstPixels(tempYGradSobel, dstPixels);
+    		break;
+    	case 8:	// Gradientenbetrag
+
     		filterWidth = 3;
     		filterHeight = 3;
-    		doConvolution(srcPixels, dstPixels, width, height, sobelFilterY, filterWidth, filterHeight);
+    		doConvolution(srcPixels, tempSobelX, width, height, sobelX, filterWidth, filterHeight);
+    		doConvolution(srcPixels, tempSobelY, width, height, sobelY, filterWidth, filterHeight);
+    		showMagnitudeOfJoinedConvolutions(tempSobelX, tempSobelY, dstPixels);
     		break;
-    	case 6:	// Gradientenbetrag
+    	case 9:	// Gradientenwinkel
+    		filterWidth = 3;
+    		filterHeight = 3;
+    		doConvolution(srcPixels, tempSobelX, width, height, sobelX, filterWidth, filterHeight);
+    		doConvolution(srcPixels, tempSobelY, width, height, sobelY, filterWidth, filterHeight);
+    		showAngleOfJoinedConvolutions(tempSobelX, tempSobelY, dstPixels);
+    		break;
+    	case 10:	// Gradientenwinkel Farbe
     		
     		break;
-    	case 7:	// Gradientenwinkel
-    		
-    		break;
-    	case 8:	// Gradientenwinkel Farbe
-    		
-    		break;
-    	case 9:	// Kombination
-    		
+    	case 11:	// Kombination
+    		filterWidth = 3;
+    		filterHeight = 3;
+    		doConvolution(srcPixels, tempSobelX, width, height, sobelX, filterWidth, filterHeight);
+    		doConvolution(srcPixels, tempSobelY, width, height, sobelY, filterWidth, filterHeight);
+    		showColoredPixelsOfJoinedConvolutions(tempSobelX, tempSobelY, dstPixels);
     		break;
     	default:	
     		break;
@@ -276,43 +312,51 @@ public class Process extends JPanel {
 		}
     }
     
-    void doSimpleHorizontalConvolution(int srcPixels[], int dstPixels[], int width, int height) {
-    	float[] filter = {-0.5f, 0, 0.5f};
+    void doSimpleHorizontalConvolution(int srcPixels[], int dstPixels[], int width, int height, float[] filter) {
+    	float filterWeight = getFilterWeight(filter);
     	for (int y = 0; y < height; y++) {
-			
 			for (int x = 0; x < width; x++) {
 				int pos	= y * width + x;
-				int left = (pos-1 < 0 || x == 0) ? (srcPixels[pos]>>16)&0xFF : (srcPixels[pos-1]>>16)&0xFF;
+				int left = (pos-1 < 0 || x % width == 0) ? (srcPixels[pos]>>8)&0xFF : (srcPixels[pos-1]>>8)&0xFF;
 				int middle = srcPixels[pos];
-				int right = (pos+1 >= srcPixels.length || x == width - 1) ? (srcPixels[pos]>>16)&0xFF : (srcPixels[pos+1]>>16)&0xFF; 
+				int right = (pos+1 >= srcPixels.length || x % (width - 1) == 0) ? (srcPixels[pos]>>8)&0xFF : (srcPixels[pos+1]>>8)&0xFF; 
 				
 				int result = (int) (left * filter[0] + middle * filter[1] + right * filter[2]);
-				
-//				int r = ((left>>16)&0xFF * filter[0] + (middle>>16)&0xFF * filter[1] + (right>>16)&0xFF * filter[2]) / 2;
-//				int g = ((left>> 8)&0xFF * filter[0] + (middle>> 8)&0xFF * filter[1] + (right>> 0)&0xFF * filter[2]) / 2;
-//				int b = ((left    )&0xFF * filter[0] + (middle    )&0xFF * filter[1] + (right    )&0xFF * filter[2]) / 2;
-				
-//				int r = (result>>16)&0xFF;
-//				int g = (result>> 8)&0xFF;
-//				int b = (result    )&0xFF;
+				result /= filterWeight;
 				
 				int lum = (int) (0.299*result + 0.587*result + 0.114*result + parameter1);
-				//System.out.println(lum);
-//				System.out.println("before conv:" + srcPixels[pos]);
-//				System.out.println("after conv:" + result);
-				//lum = Math.min(lum,255);
 				dstPixels[pos] = 0xFF000000 | (lum<<16) | (lum<<8) | lum;
-				//dstPixels[pos] = result;
 				
 			}
 		}
     }
     
-    void doSimpleVerticalConvolution(int srcPixels[], int dstPixels[], int width, int height) {
-    	
+    void doSimpleVerticalConvolution(int srcPixels[], int dstPixels[], int width, int height, float[] filter) {
+    	float filterWeight = getFilterWeight(filter);
+    	for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				int pos	= y * width + x;
+				int top = (pos-width < 0) ? (srcPixels[pos]>>8)&0xFF : (srcPixels[pos-width]>>8)&0xFF;
+				int middle = srcPixels[pos];
+				int bottom = (pos+width >= srcPixels.length) ? (srcPixels[pos]>>8)&0xFF : (srcPixels[pos+width]>>8)&0xFF; 
+				
+				int result = (int) (top * filter[0] + middle * filter[1] + bottom * filter[2]);
+				result /= filterWeight;
+				
+				int lum = (int) (0.299*result + 0.587*result + 0.114*result + parameter1);
+				dstPixels[pos] = 0xFF000000 | (lum<<16) | (lum<<8) | lum;
+				
+			}
+		}
     }
+
     
     void doConvolution(int srcPixels[], int dstPixels[], int width, int height, float filter[], int filterWidth, int filterHeight) {
+    	int[] temp = new int[width * height];
+    	doGray(srcPixels, temp, width, height);
+    	
+    	float filterWeight = getFilterWeight(filter);
+    	
     	for (int y = 0; y < height; y++) {
 			for (int x = 0; x < width; x++) {
 				int pos = y * width + x;
@@ -322,23 +366,87 @@ public class Process extends JPanel {
 				for(int j=pos-(filterHeight/2)*width; j<=pos+(filterHeight/2)*width; j = j+width) {
 					for(int i=j-(filterWidth/2); i<=j+(filterWidth/2); i++)
 					{
-						if(i<0 || i>=srcPixels.length || (i != 0 && pos % width == 0 && (i+1) % width == 0) || (pos != 0 && (pos+1) % width == 0 && i % width == 0)) 
-							values[counter] = (srcPixels[pos]>>16)&0xFF;
+						if(i<0 || i>=temp.length || (i != 0 && pos % width == 0 && (i+1) % width == 0) || (pos != 0 && (pos+1) % width == 0 && i % width == 0)) 
+							values[counter] = values[counter] = (temp[pos]>>8)&0xFF;//(getLumOfPixel(temp[pos]));//
 						else 
-							values[counter] = (srcPixels[i]>>16)&0xFF;
+							values[counter] = values[counter] = (temp[i]>>8)&0xFF;//(getLumOfPixel(temp[i]));//
 						counter++;
 					}
 				}
 				for(int u=0; u<values.length; u++) {
 					result += values[u] * filter[u];
 				}
-//				int r = (result>>16)&0xFF;
-//				int g = (result>> 8)&0xFF;
-//				int b = (result    )&0xFF;
-				int lum = (int) (0.299*result + 0.587*result + 0.114*result + parameter1);
-				dstPixels[pos] = 0xFF000000 | (lum<<16) | (lum<<8) | lum;
+				result /= filterWeight;
+				dstPixels[pos] = result;
 			}
 		}
+    }
+    
+    void showDstPixels(int[] filteredPixels, int[] dstPixels) {
+    	for(int i=0; i<dstPixels.length; i++) {
+    		int lum = (int) (0.299*filteredPixels[i] + 0.587*filteredPixels[i] + 0.114*filteredPixels[i] + parameter1);
+			lum = Math.min(lum,255);
+			dstPixels[i] = 0xFF000000 | (lum<<16) | (lum<<8) | lum;
+    	}
+    }
+    
+    void showFilteredPixelsOfJoinedConvolutions(int[] pixelsFilterA, int[] pixelsFilterB, int[] dstPixels) {
+    	if(pixelsFilterA.length != pixelsFilterB.length) return;
+    	int a,b;
+    	for(int i = 0; i < pixelsFilterA.length; i++) {
+    		a = (pixelsFilterA[i]>>8)&0xFF;
+    		b = (pixelsFilterB[i]>>8)&0xFF;
+    		int result = (a+b)/2;
+    		int lum = (int) (0.299*result + 0.587*result + 0.114*result);
+    		dstPixels[i] = 0xFF000000 | (lum<<16) | (lum<<8) | lum;
+    	}
+    }
+    
+    void showMagnitudeOfJoinedConvolutions(int[] pixelsFilterA, int[] pixelsFilterB, int[] dstPixels) {
+    	if(pixelsFilterA.length != pixelsFilterB.length) return;
+    	int a,b;
+    	for(int i = 0; i < pixelsFilterA.length; i++) {
+    		a = pixelsFilterA[i];
+    		b = pixelsFilterB[i];
+    		int result = (int) Math.sqrt((a*a+b*b));
+    		int lum = (int) (0.299*result + 0.587*result + 0.114*result + parameter1);
+    		dstPixels[i] = 0xFF000000 | (lum<<16) | (lum<<8) | lum;
+    	}
+    }
+    
+    void showAngleOfJoinedConvolutions(int[] pixelsFilterA, int[] pixelsFilterB, int[] dstPixels) {
+    	if(pixelsFilterA.length != pixelsFilterB.length) return;
+    	int a,b;
+    	for(int i = 0; i < pixelsFilterA.length; i++) {
+    		a = pixelsFilterA[i];
+    		b = pixelsFilterB[i];
+    		double tempResult = Math.atan2(b, a) / Math.PI;
+    		int result = (int) (tempResult * 128 + 128);
+    		int lum = (int) (0.299*result + 0.587*result + 0.114*result + parameter1);
+    		dstPixels[i] = 0xFF000000 | (lum<<16) | (lum<<8) | lum;
+    	}
+    }
+    
+    void showColoredPixelsOfJoinedConvolutions(int[] pixelsFilterA, int[] pixelsFilterB, int[] dstPixels) {
+    	if(pixelsFilterA.length != pixelsFilterB.length) return;
+    	int a,b;
+    	for(int i = 0; i < pixelsFilterA.length; i++) {
+    		a = pixelsFilterA[i];
+    		b = pixelsFilterB[i];
+    		float angle = (float) (Math.atan2(b, a) / Math.PI);
+    		float magnitude = (float) (Math.sqrt(a*a+b*b) / 128);
+    		Color color = Color.getHSBColor(angle, magnitude, magnitude);
+    		int rgbVal = color.getRGB();
+    		dstPixels[i] = 0xFF000000 | (rgbVal<<16) | (rgbVal<<8) | rgbVal;
+    	}
+    }
+    
+    float getFilterWeight(float[] filter) {
+    	float filterWeight = 0.0f;
+    	for(int f=0; f<filter.length; f++) {
+    		filterWeight += Math.abs(filter[f]);
+    	}
+    	return filterWeight;
     }
     
     int getLumOfPixel(int rgbValue) {
