@@ -18,6 +18,7 @@ public class Process extends JPanel {
 	private static JFrame frame;
 	
 	private ImageView srcView;			// source image view
+	private ImageView accView;
 	private ImageView dstView;			// scaled image view
 	
 	private JComboBox methodList;		// the selected scaling method
@@ -29,13 +30,14 @@ public class Process extends JPanel {
         super(new BorderLayout(border, border));
         
         // load the default image
-        File input = new File("360411_pixelio.png");
+        File input = new File("linien.png");
         
         if(!input.canRead()) input = openFile(); // file not found, choose another image
         
         srcView = new ImageView(input);
         srcView.setMaxSize(new Dimension(maxWidth, maxHeight));
        
+        accView = new ImageView(maxWidth, maxHeight);
 		// create an empty destination image
 		dstView = new ImageView(maxWidth, maxHeight);
 		
@@ -56,10 +58,10 @@ public class Process extends JPanel {
         JLabel methodText = new JLabel("Methode:");
         String[] methodNames = {"Kopie", "Graustufen", "X-Gradient", 
         		"Y-Gradient", "X-Gradient Sobel (sep)", "Y-Gradient Sobel (sep)", "X-Gradient Sobel", "Y-Gradient Sobel", 
-        		"Gradientenbetrag", "Gradientenwinkel", "Gradientenwinkel Farbe", "Kombination"};
+        		"Gradientenbetrag", "Gradientenwinkel", "Gradientenwinkel Farbe", "Kombination", "Finde Linien"};
         
         methodList = new JComboBox(methodNames);
-        methodList.setSelectedIndex(0);		// set initial method
+        methodList.setSelectedIndex(methodNames.length - 1);		// set initial method
         methodList.addActionListener(new ActionListener() {
         	public void actionPerformed(ActionEvent e) {
                 processImage(false);
@@ -101,6 +103,7 @@ public class Process extends JPanel {
         
         JPanel images = new JPanel(new FlowLayout());
         images.add(srcView);
+        images.add(accView);
         images.add(dstView);
         
         add(controls, BorderLayout.NORTH);
@@ -114,7 +117,7 @@ public class Process extends JPanel {
 	}
 	
 	private File openFile() {
-        JFileChooser chooser = new JFileChooser();
+        JFileChooser chooser = new JFileChooser("/Users/simon/Documents/HTW/5. Semester/CV/workspace/CV/CV_01");
         FileNameExtensionFilter filter = new FileNameExtensionFilter("Images (*.jpg, *.png, *.gif)", "jpg", "png", "gif");
         chooser.setFileFilter(filter);
         int ret = chooser.showOpenDialog(this);
@@ -170,6 +173,11 @@ public class Process extends JPanel {
     	// get pixels arrays
     	int srcPixels[] = srcView.getPixels();
     	int dstPixels[] = new int[width * height];
+    	int accPixels[] = new int[width * height];
+    	
+    	for(int q = 0; q < accPixels.length; q++) {
+    		accPixels[q] = -16777216;
+    	}
     	
     	String message = "\"" + methodName + "\"";
 
@@ -262,6 +270,10 @@ public class Process extends JPanel {
     		doConvolution(srcPixels, tempSobelY, width, height, sobelY, filterWidth, filterHeight);
     		showColoredPixelsOfJoinedConvolutions(tempSobelX, tempSobelY, dstPixels);
     		break;
+    	case 12:	// Kombination
+    		//findLines(srcPixels, accPixels, dstPixels, width, height);
+    		linearHoughTransformation(srcPixels, accPixels, dstPixels, width, height);
+    		break;
     	default:	
     		break;
     	}
@@ -270,12 +282,81 @@ public class Process extends JPanel {
 		   	
         dstView.setPixels(dstPixels, width, height);
         
+        accView.setPixels(accPixels, width, height);
+        
         frame.pack();
         
     	statusLine.setText(message + " in " + time + " ms");
     }
+    private void findLines(int srcPixels[], int accPixels[], int dstPixels[], int width, int height) {
+		int angleAmount = 18; // 0 - 170 degrees
+		int angleStep = 10;
+		int xCenter = width / 2;
+		int yCenter = height / 2;
+
+		double[] sinThetas = new double[angleAmount];
+		double[] cosThetas = new double[angleAmount];
+		for(int a = 0; a < angleAmount ; a++) {
+			int angle = a*10;
+			sinThetas[a] = Math.sin(Math.toRadians(angle));
+			cosThetas[a] = Math.cos(Math.toRadians(angle));
+		}
+		//System.out.println("length: " + srcPixels.length);
+		//System.out.println(width); // 400
+		//System.out.println(height); // 256
+		//accumulatorPic
+    	for (int y = 0; y < height; y++) {
+    		for (int x = 0; x < width; x++) {
+    			int pos	= y * width + x;
+    			int pixel = srcPixels[pos];
+    			//found white pixel?
+    			if(pixel == -1) {
+    				int xp = x - xCenter;
+    				int yp = y - yCenter;
+    				for(int i=0; i<angleAmount; i++) {
+    					int theta = (int) (Math.toRadians(i*angleStep) / Math.PI * width);
+    					int r = (int) Math.round((xp * cosThetas[i] + yp * sinThetas[i]));
+    					int location = r * width + theta;
+    					//System.out.println("theta: " + theta + " r: " + r);
+    					accPixels[location] += 10000;
+    				}
+    			}
+    		}
+    	}
+	}
     
-    void doCopy(int srcPixels[], int dstPixels[], int width, int height) {
+    private void linearHoughTransformation(int srcPixels[], int accPixels[], int dstPixels[], int width, int height) {
+    	int xCtr = width / 2;
+    	int yCtr = height / 2;
+    	int nAng = 256;
+    	double dAng = Math.PI / nAng;
+    	int nRad = 256;
+    	double rMax = Math.sqrt(xCtr*xCtr + yCtr*yCtr);
+    	double dRad = (2*rMax)/nRad;
+    	int[][] houghArray = new int[nAng][nRad];
+    	for(int v=0; v<height; v++) {
+    		for(int u=0; u<width; u++) {
+    			int pos	= v * width + u;
+    			if(srcPixels[pos] == -1) {
+    				//doPixel
+    				int x = u-xCtr;
+    				int y = v-yCtr;
+    				for(int a = 0; a < nAng; a++) {
+    					double theta = dAng * a;
+    					int r = (int) Math.round((x*Math.cos(theta) + y*Math.sin(theta)) / dRad) + nRad / 2;
+    					if (r >= 0 && r < nRad) {
+    						houghArray[a][r]++;
+    						int lum = accPixels[r*width+a] + 1;
+    						accPixels[r*width+a] = 0xFF000000 | (lum<<16) | (lum<<8) | lum;
+    					}
+    				}
+    			}
+    		}
+    	}
+    	
+    }
+
+	void doCopy(int srcPixels[], int dstPixels[], int width, int height) {
     	// loop over all pixels of the destination image
 
     	for (int y = 0; y < height; y++) {
